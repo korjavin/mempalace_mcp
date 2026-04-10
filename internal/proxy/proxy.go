@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +24,13 @@ type MCPProxy struct {
 	mu       sync.Mutex
 	sessions map[string]*sseSession // sessionID -> session
 	pending  map[any]string         // jsonrpc id -> sessionID
+	directCh map[string]chan []byte // jsonrpc id -> direct response channel (for internal requests)
+
+	// Process health tracking
+	exited   bool   // true after subprocess exits
+	exitErr  error  // exit error (nil if clean exit)
+	exitOnce sync.Once
+	exitCh   chan struct{} // closed when subprocess exits
 }
 
 type sseSession struct {
@@ -59,9 +67,12 @@ func New(ctx context.Context, palacePath string) (*MCPProxy, error) {
 		stdout:   bufio.NewReader(stdout),
 		sessions: make(map[string]*sseSession),
 		pending:  make(map[any]string),
+		directCh: make(map[string]chan []byte),
+		exitCh:   make(chan struct{}),
 	}
 
 	go p.readLoop()
+	go p.monitorProcess()
 	slog.Info("mempalace subprocess started", "pid", cmd.Process.Pid)
 	return p, nil
 }
@@ -87,10 +98,17 @@ func (p *MCPProxy) readLoop() {
 
 		p.mu.Lock()
 		if msg.ID != nil {
-			// Response to a request — route to the session that sent it
-			sessionID, ok := p.pending[normalizeID(msg.ID)]
-			if ok {
-				delete(p.pending, normalizeID(msg.ID))
+			nid := normalizeID(msg.ID)
+			// Check direct response channels first (internal requests like debug/status)
+			if ch, ok := p.directCh[nid]; ok {
+				delete(p.directCh, nid)
+				select {
+				case ch <- line:
+				default:
+				}
+			} else if sessionID, ok := p.pending[nid]; ok {
+				// Response to a request — route to the session that sent it
+				delete(p.pending, nid)
 				if sess, exists := p.sessions[sessionID]; exists {
 					select {
 					case sess.events <- line:
@@ -213,10 +231,89 @@ func (p *MCPProxy) HandleMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// StatusRequest sends a mempalace_status tool call through the subprocess and returns the raw response.
+// It uses a dedicated direct channel (not tied to any SSE session) with a 5-second timeout.
+func (p *MCPProxy) StatusRequest(ctx context.Context) ([]byte, error) {
+	reqID := "debug-status-" + uuid.New().String()
+
+	req := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      reqID,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      "mempalace_status",
+			"arguments": map[string]any{},
+		},
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	ch := make(chan []byte, 1)
+
+	p.mu.Lock()
+	p.directCh[normalizeID(reqID)] = ch
+	_, err = p.stdin.Write(append(body, '\n'))
+	p.mu.Unlock()
+
+	if err != nil {
+		p.mu.Lock()
+		delete(p.directCh, normalizeID(reqID))
+		p.mu.Unlock()
+		return nil, fmt.Errorf("write to subprocess: %w", err)
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	select {
+	case resp := <-ch:
+		return resp, nil
+	case <-timeoutCtx.Done():
+		p.mu.Lock()
+		delete(p.directCh, normalizeID(reqID))
+		p.mu.Unlock()
+		return nil, fmt.Errorf("status request timed out")
+	}
+}
+
+// monitorProcess waits for the subprocess to exit and records the result.
+func (p *MCPProxy) monitorProcess() {
+	if p.cmd == nil {
+		return
+	}
+	err := p.cmd.Wait()
+	p.exitOnce.Do(func() {
+		p.mu.Lock()
+		p.exited = true
+		p.exitErr = err
+		p.mu.Unlock()
+		close(p.exitCh)
+		if err != nil {
+			slog.Error("mempalace subprocess exited unexpectedly", "error", err)
+		} else {
+			slog.Warn("mempalace subprocess exited", "code", 0)
+		}
+	})
+}
+
+// IsAlive returns true if the subprocess is still running.
+func (p *MCPProxy) IsAlive() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return !p.exited
+}
+
 // Stop terminates the subprocess.
 func (p *MCPProxy) Stop() error {
 	p.stdin.Close()
-	return p.cmd.Wait()
+	// Wait for monitorProcess to detect the exit.
+	<-p.exitCh
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.exitErr
 }
 
 // normalizeID converts JSON-RPC id to a comparable string key.

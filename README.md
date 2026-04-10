@@ -43,6 +43,34 @@ cp .env.example .env
 
 Push to master — GitHub Actions builds and pushes to GHCR, then triggers Portainer webhook.
 
+## Endpoints
+
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/sse` | GET | Required | SSE stream for MCP client connections |
+| `/message` | POST | Required | JSON-RPC messages from MCP clients |
+| `/health` | GET | No | Basic liveness check |
+| `/debug/status` | GET | Required | Full stack health: subprocess alive + mempalace_status tool output |
+| `/auth/login` | GET | No | Start Google OIDC flow |
+| `/auth/callback` | GET | No | OAuth2 callback |
+
+### `/debug/status`
+
+Returns subprocess health and mempalace internal status:
+
+```json
+{
+  "alive": true,
+  "mempalace": { "...": "raw response from mempalace_status tool" }
+}
+```
+
+Returns 504 if the subprocess does not respond within 5 seconds.
+
+## Auto-Initialization
+
+On startup, the server checks for `~/.mempalace/config.json`. If missing, it creates the config and palace data directory automatically so the MCP server can accept writes immediately without manual `mempalace init`.
+
 ## MCP Client Configuration
 
 Connect your MCP client to `https://your-domain.com/sse` with the session cookie or token query parameter for auth.

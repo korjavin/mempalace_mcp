@@ -1,6 +1,6 @@
 services:
   mempalace-mcp:
-    image: ghcr.io/korjavin/mempalace_mcp:latest
+    image: ghcr.io/korjavin/mempalace_mcp:89941948852063aa498bf415de1b7f0d8e053107
     restart: unless-stopped
     env_file: .env
     environment:

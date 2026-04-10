@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +24,7 @@ type MCPProxy struct {
 	mu       sync.Mutex
 	sessions map[string]*sseSession // sessionID -> session
 	pending  map[any]string         // jsonrpc id -> sessionID
+	directCh map[string]chan []byte // jsonrpc id -> direct response channel (for internal requests)
 }
 
 type sseSession struct {
@@ -59,6 +61,7 @@ func New(ctx context.Context, palacePath string) (*MCPProxy, error) {
 		stdout:   bufio.NewReader(stdout),
 		sessions: make(map[string]*sseSession),
 		pending:  make(map[any]string),
+		directCh: make(map[string]chan []byte),
 	}
 
 	go p.readLoop()
@@ -87,10 +90,17 @@ func (p *MCPProxy) readLoop() {
 
 		p.mu.Lock()
 		if msg.ID != nil {
-			// Response to a request — route to the session that sent it
-			sessionID, ok := p.pending[normalizeID(msg.ID)]
-			if ok {
-				delete(p.pending, normalizeID(msg.ID))
+			nid := normalizeID(msg.ID)
+			// Check direct response channels first (internal requests like debug/status)
+			if ch, ok := p.directCh[nid]; ok {
+				delete(p.directCh, nid)
+				select {
+				case ch <- line:
+				default:
+				}
+			} else if sessionID, ok := p.pending[nid]; ok {
+				// Response to a request — route to the session that sent it
+				delete(p.pending, nid)
 				if sess, exists := p.sessions[sessionID]; exists {
 					select {
 					case sess.events <- line:
@@ -211,6 +221,54 @@ func (p *MCPProxy) HandleMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// StatusRequest sends a mempalace_status tool call through the subprocess and returns the raw response.
+// It uses a dedicated direct channel (not tied to any SSE session) with a 5-second timeout.
+func (p *MCPProxy) StatusRequest(ctx context.Context) ([]byte, error) {
+	reqID := "debug-status-" + uuid.New().String()
+
+	req := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      reqID,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      "mempalace_status",
+			"arguments": map[string]any{},
+		},
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	ch := make(chan []byte, 1)
+
+	p.mu.Lock()
+	p.directCh[normalizeID(reqID)] = ch
+	_, err = p.stdin.Write(append(body, '\n'))
+	p.mu.Unlock()
+
+	if err != nil {
+		p.mu.Lock()
+		delete(p.directCh, normalizeID(reqID))
+		p.mu.Unlock()
+		return nil, fmt.Errorf("write to subprocess: %w", err)
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	select {
+	case resp := <-ch:
+		return resp, nil
+	case <-timeoutCtx.Done():
+		p.mu.Lock()
+		delete(p.directCh, normalizeID(reqID))
+		p.mu.Unlock()
+		return nil, fmt.Errorf("status request timed out")
+	}
 }
 
 // Stop terminates the subprocess.

@@ -46,14 +46,14 @@
 - [x] Run tests — must pass before next task
 
 ### Task 2: Add `/debug/status` endpoint via MCP protocol
-- [ ] Add `StatusRequest(ctx context.Context) ([]byte, error)` method to `MCPProxy` that sends a JSON-RPC `tools/call` for `mempalace_status` through the subprocess stdin and waits for the response
-- [ ] Use a dedicated internal session (not tied to any SSE client) with a reserved JSON-RPC id prefix for debug requests
-- [ ] Add `GET /debug/status` route in `handler.go` — authenticated via `RequireAuthOrToken`
-- [ ] Handler calls `proxy.StatusRequest()`, returns the MCP response as JSON
-- [ ] Handle timeout (5s) — return 504 if subprocess doesn't respond
-- [ ] Write tests for `StatusRequest` with mock subprocess (write expected JSON-RPC response to stdout pipe)
-- [ ] Write tests for `/debug/status` handler (success, timeout, auth required)
-- [ ] Run tests — must pass before next task
+- [x] Add `StatusRequest(ctx context.Context) ([]byte, error)` method to `MCPProxy` that sends a JSON-RPC `tools/call` for `mempalace_status` through the subprocess stdin and waits for the response
+- [x] Use a dedicated internal session (not tied to any SSE client) with a reserved JSON-RPC id prefix for debug requests
+- [x] Add `GET /debug/status` route in `handler.go` — authenticated via `RequireAuthOrToken`
+- [x] Handler calls `proxy.StatusRequest()`, returns the MCP response as JSON
+- [x] Handle timeout (5s) — return 504 if subprocess doesn't respond
+- [x] Write tests for `StatusRequest` with mock subprocess (write expected JSON-RPC response to stdout pipe)
+- [x] Write tests for `/debug/status` handler (success, timeout, auth required)
+- [x] Run tests — must pass before next task
 
 ### Task 3: Improve proxy subprocess lifecycle
 - [ ] Add health monitoring: detect if mempalace subprocess exits unexpectedly, log error with exit code

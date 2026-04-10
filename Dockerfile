@@ -17,7 +17,11 @@ RUN pip install --no-cache-dir mempalace
 WORKDIR /app
 COPY --from=builder /app/server .
 
+# Set HOME so ~/.mempalace/ resolves inside the container
+ENV HOME=/app
+
 # Palace data volume
+RUN mkdir -p /data/palace
 VOLUME /data/palace
 
 ENV PORT=8080

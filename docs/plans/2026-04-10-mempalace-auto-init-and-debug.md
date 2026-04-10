@@ -63,12 +63,12 @@
 - [x] Run tests — must pass before next task
 
 ### Task 4: Update Dockerfile for proper palace setup
-- [ ] Set `HOME=/app` in Dockerfile so `~/.mempalace/` resolves inside the container
-- [ ] Ensure `/data/palace` volume mount point is created
-- [ ] Add `PALACE_PATH` and `HOME` to docker-compose.yml environment
-- [ ] Verify `.env.example` has all new variables documented
-- [ ] Write a simple integration test script (`scripts/test-docker.sh`) that builds the image and verifies `/health` responds
-- [ ] Run tests — must pass before next task
+- [x] Set `HOME=/app` in Dockerfile so `~/.mempalace/` resolves inside the container
+- [x] Ensure `/data/palace` volume mount point is created
+- [x] Add `PALACE_PATH` and `HOME` to docker-compose.yml environment
+- [x] Verify `.env.example` has all new variables documented
+- [x] Write a simple integration test script (`scripts/test-docker.sh`) that builds the image and verifies `/health` responds
+- [x] Run tests — must pass before next task
 
 ### Task 5: Verify acceptance criteria
 - [ ] Verify: container starts with empty volume → palace auto-inits → MCP server starts → `/debug/status` returns data

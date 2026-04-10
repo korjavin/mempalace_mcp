@@ -3,6 +3,9 @@ services:
     image: ghcr.io/korjavin/mempalace_mcp:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      - HOME=/app
+      - PALACE_PATH=/data/palace
     volumes:
       - palace_data:/data/palace
     ports:

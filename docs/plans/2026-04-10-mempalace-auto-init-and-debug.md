@@ -37,13 +37,13 @@
 ## Implementation Steps
 
 ### Task 1: Add palace auto-initialization on startup
-- [ ] Create `internal/palace/init.go` with `EnsureInitialized(palacePath string) error`
-- [ ] Check if `~/.mempalace/config.json` exists; if not, create it programmatically (JSON with `palace_path`, `collection_name: "mempalace_drawers"`)
-- [ ] Create `PALACE_PATH` directory if missing
-- [ ] Call `EnsureInitialized` from `cmd/server/main.go` before starting the MCP proxy subprocess
-- [ ] Write tests for `EnsureInitialized` — palace dir created, config.json written correctly
-- [ ] Write tests for idempotency — calling twice doesn't corrupt existing config
-- [ ] Run tests — must pass before next task
+- [x] Create `internal/palace/init.go` with `EnsureInitialized(palacePath string) error`
+- [x] Check if `~/.mempalace/config.json` exists; if not, create it programmatically (JSON with `palace_path`, `collection_name: "mempalace_drawers"`)
+- [x] Create `PALACE_PATH` directory if missing
+- [x] Call `EnsureInitialized` from `cmd/server/main.go` before starting the MCP proxy subprocess
+- [x] Write tests for `EnsureInitialized` — palace dir created, config.json written correctly
+- [x] Write tests for idempotency — calling twice doesn't corrupt existing config
+- [x] Run tests — must pass before next task
 
 ### Task 2: Add `/debug/status` endpoint via MCP protocol
 - [ ] Add `StatusRequest(ctx context.Context) ([]byte, error)` method to `MCPProxy` that sends a JSON-RPC `tools/call` for `mempalace_status` through the subprocess stdin and waits for the response

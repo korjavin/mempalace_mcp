@@ -1,0 +1,18 @@
+services:
+  mempalace-mcp:
+    image: ghcr.io/korjavin/mempalace_mcp:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - palace_data:/data/palace
+    ports:
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mempalace-mcp.rule=Host(`mempalace-mcp.example.com`)"
+      - "traefik.http.routers.mempalace-mcp.entrypoints=websecure"
+      - "traefik.http.routers.mempalace-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mempalace-mcp.loadbalancer.server.port=8080"
+
+volumes:
+  palace_data:

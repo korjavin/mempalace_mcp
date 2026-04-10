@@ -47,19 +47,44 @@ func (h *Handler) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) debugStatusHandler(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.proxy.StatusRequest(r.Context())
-	if err != nil {
-		if strings.Contains(err.Error(), "timed out") {
-			http.Error(w, `{"error":"status request timed out"}`, http.StatusGatewayTimeout)
-			return
+	alive := h.proxy.IsAlive()
+
+	var mempalaceData json.RawMessage
+	var mcpErr string
+
+	if alive {
+		resp, err := h.proxy.StatusRequest(r.Context())
+		if err != nil {
+			if strings.Contains(err.Error(), "timed out") {
+				mcpErr = "status request timed out"
+			} else {
+				slog.Error("debug status request failed", "error", err)
+				mcpErr = "internal error"
+			}
+		} else {
+			mempalaceData = resp
 		}
-		slog.Error("debug status request failed", "error", err)
-		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
-		return
+	} else {
+		mcpErr = "subprocess not running"
+	}
+
+	result := map[string]any{
+		"alive": alive,
+	}
+	if mempalaceData != nil {
+		result["mempalace"] = mempalaceData
+	}
+	if mcpErr != "" {
+		result["error"] = mcpErr
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(resp)
+	if !alive {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else if mcpErr != "" {
+		w.WriteHeader(http.StatusGatewayTimeout)
+	}
+	json.NewEncoder(w).Encode(result)
 }
 
 func logMiddleware(next http.Handler) http.Handler {

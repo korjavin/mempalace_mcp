@@ -25,6 +25,12 @@ type MCPProxy struct {
 	sessions map[string]*sseSession // sessionID -> session
 	pending  map[any]string         // jsonrpc id -> sessionID
 	directCh map[string]chan []byte // jsonrpc id -> direct response channel (for internal requests)
+
+	// Process health tracking
+	exited   bool   // true after subprocess exits
+	exitErr  error  // exit error (nil if clean exit)
+	exitOnce sync.Once
+	exitCh   chan struct{} // closed when subprocess exits
 }
 
 type sseSession struct {
@@ -62,9 +68,11 @@ func New(ctx context.Context, palacePath string) (*MCPProxy, error) {
 		sessions: make(map[string]*sseSession),
 		pending:  make(map[any]string),
 		directCh: make(map[string]chan []byte),
+		exitCh:   make(chan struct{}),
 	}
 
 	go p.readLoop()
+	go p.monitorProcess()
 	slog.Info("mempalace subprocess started", "pid", cmd.Process.Pid)
 	return p, nil
 }
@@ -271,10 +279,41 @@ func (p *MCPProxy) StatusRequest(ctx context.Context) ([]byte, error) {
 	}
 }
 
+// monitorProcess waits for the subprocess to exit and records the result.
+func (p *MCPProxy) monitorProcess() {
+	if p.cmd == nil {
+		return
+	}
+	err := p.cmd.Wait()
+	p.exitOnce.Do(func() {
+		p.mu.Lock()
+		p.exited = true
+		p.exitErr = err
+		p.mu.Unlock()
+		close(p.exitCh)
+		if err != nil {
+			slog.Error("mempalace subprocess exited unexpectedly", "error", err)
+		} else {
+			slog.Warn("mempalace subprocess exited", "code", 0)
+		}
+	})
+}
+
+// IsAlive returns true if the subprocess is still running.
+func (p *MCPProxy) IsAlive() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return !p.exited
+}
+
 // Stop terminates the subprocess.
 func (p *MCPProxy) Stop() error {
 	p.stdin.Close()
-	return p.cmd.Wait()
+	// Wait for monitorProcess to detect the exit.
+	<-p.exitCh
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.exitErr
 }
 
 // normalizeID converts JSON-RPC id to a comparable string key.

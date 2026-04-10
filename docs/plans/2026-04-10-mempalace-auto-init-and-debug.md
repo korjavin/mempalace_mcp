@@ -56,11 +56,11 @@
 - [x] Run tests — must pass before next task
 
 ### Task 3: Improve proxy subprocess lifecycle
-- [ ] Add health monitoring: detect if mempalace subprocess exits unexpectedly, log error with exit code
-- [ ] Add `IsAlive() bool` method to `MCPProxy` that checks if the subprocess is still running
-- [ ] Include subprocess alive status in `/debug/status` response alongside mempalace data
-- [ ] Write tests for `IsAlive` (running vs exited process)
-- [ ] Run tests — must pass before next task
+- [x] Add health monitoring: detect if mempalace subprocess exits unexpectedly, log error with exit code
+- [x] Add `IsAlive() bool` method to `MCPProxy` that checks if the subprocess is still running
+- [x] Include subprocess alive status in `/debug/status` response alongside mempalace data
+- [x] Write tests for `IsAlive` (running vs exited process)
+- [x] Run tests — must pass before next task
 
 ### Task 4: Update Dockerfile for proper palace setup
 - [ ] Set `HOME=/app` in Dockerfile so `~/.mempalace/` resolves inside the container

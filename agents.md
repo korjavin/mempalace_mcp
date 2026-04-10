@@ -6,10 +6,11 @@ An authenticated MCP-over-SSE proxy for mempalace. Go handles HTTP/auth, mempala
 
 ## Structure
 
-- `cmd/server/main.go` — Entry point. Starts auth, proxy, HTTP server.
+- `cmd/server/main.go` — Entry point. Runs palace auto-init, starts auth, proxy, HTTP server.
 - `internal/auth/google.go` — Google OIDC login, session cookies, middleware.
-- `internal/proxy/proxy.go` — Spawns `python -m mempalace.mcp_server`, proxies JSON-RPC between SSE clients and subprocess stdin/stdout.
-- `internal/api/handler.go` — HTTP routing: `/health`, `/auth/*`, `/sse`, `/message`.
+- `internal/palace/init.go` — Auto-initialization: creates `~/.mempalace/config.json` and palace data directory if missing, so the MCP server works without manual `mempalace init`.
+- `internal/proxy/proxy.go` — Spawns `python -m mempalace.mcp_server`, proxies JSON-RPC between SSE clients and subprocess stdin/stdout. Includes `StatusRequest()` for debug queries and `IsAlive()` for health monitoring.
+- `internal/api/handler.go` — HTTP routing: `/health`, `/auth/*`, `/sse`, `/message`, `/debug/status`.
 
 ## How It Works
 

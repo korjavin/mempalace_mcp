@@ -78,9 +78,9 @@
 - [x] Run linter (`go vet ./...`) — all issues must be fixed
 
 ### Task 6: [Final] Update documentation
-- [ ] Update README.md with `/debug/status` endpoint docs
-- [ ] Update agents.md with new `internal/palace/` package description
-- [ ] Update .env.example if any new env vars added
+- [x] Update README.md with `/debug/status` endpoint docs
+- [x] Update agents.md with new `internal/palace/` package description
+- [x] Update .env.example if any new env vars added
 
 ## Technical Details
 

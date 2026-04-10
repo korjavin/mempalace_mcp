@@ -71,11 +71,11 @@
 - [x] Run tests — must pass before next task
 
 ### Task 5: Verify acceptance criteria
-- [ ] Verify: container starts with empty volume → palace auto-inits → MCP server starts → `/debug/status` returns data
-- [ ] Verify: container restarts with existing volume → palace detected → no re-init → everything works
-- [ ] Verify: `/debug/status` returns proper error if subprocess is unhealthy
-- [ ] Run full test suite (unit tests)
-- [ ] Run linter (`go vet ./...`) — all issues must be fixed
+- [x] Verify: container starts with empty volume → palace auto-inits → MCP server starts → `/debug/status` returns data
+- [x] Verify: container restarts with existing volume → palace detected → no re-init → everything works
+- [x] Verify: `/debug/status` returns proper error if subprocess is unhealthy
+- [x] Run full test suite (unit tests)
+- [x] Run linter (`go vet ./...`) — all issues must be fixed
 
 ### Task 6: [Final] Update documentation
 - [ ] Update README.md with `/debug/status` endpoint docs
